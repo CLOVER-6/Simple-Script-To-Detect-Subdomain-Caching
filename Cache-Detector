@@ -19,6 +19,7 @@ for url in linesplit:
             or "X-Drupal-Cache"
             or "X-Cache-Hits"
             or "X-Drupal-Dynamic-Cache"
+            or "Cache-Control"
             or "Cf-Ray"
             or "Vary"
             or "Strict-Transport-Security: max-age"
