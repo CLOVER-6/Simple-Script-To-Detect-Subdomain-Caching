@@ -7,32 +7,36 @@ import sys
 subdomain_file = sys.argv[1]
 
 with open(subdomain_file) as opened:
-    subdomains = opened.read()
-
-linesplit = iter(subdomains.splitlines())
+    read = opened.read()
+    linesplit = iter(read.splitlines())
 
 for url in linesplit:
     try:
         with requests.get(url) as requesting:
             headers = requesting.headers
             if (
-                "X-Cache"
-                or "Cf-Cache-Status"
-                or "Age"
-                or "X-Drupal-Cache"
-                or "X-Cache-Hits"
-                or "X-Drupal-Dynamic-Cache"
-                or "Cf-Ray"
-                or "Vary"
-                or "Strict-Transport-Security: max-age"
-                or "Varnish"
-                or "varnish"
-                or "CloudFlare"
-                or "Fastly" in headers
+                "HIT"
+                or "MISS" in headers
+                and (
+                    "X-Cache"
+                    or "Cf-Cache-Status"
+                    or "Age"
+                    or "X-Drupal-Cache"
+                    or "X-Cache-Hits"
+                    or "X-Drupal-Dynamic-Cache"
+                    or "Cf-Ray"
+                    or "Vary"
+                    or "Strict-Transport-Security: max-age"
+                    or "Varnish"
+                    or "varnish"
+                    or "CloudFlare"
+                    or "Fastly" in headers
+                )
             ):
                 print(f"{url} - May Be Cached\n")
                 with open("cached.txt", "a") as cachedlist:
                     cachedlist.write(f"{url}\n")
     except:
+        print(f"{url} - Network Error\n")
         next(linesplit)
         continue
