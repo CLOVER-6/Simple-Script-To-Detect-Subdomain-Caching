@@ -4,11 +4,9 @@ import requests
 import sys
 
 
-subdomain_file = sys.argv[1]
+subdomain_file = sys.stdin
 
-with open(subdomain_file) as opened:
-    read = opened.read()
-    linesplit = iter(read.splitlines())
+linesplit = iter([i.rstrip("\n") for i in subdomain_file])
 
 for url in linesplit:
     try:
