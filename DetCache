@@ -5,6 +5,7 @@ import sys
 
 
 subdomain_file = sys.stdin
+filename = sys.argv[1]
 
 linesplit = iter([i.rstrip("\n") for i in subdomain_file])
 
@@ -32,7 +33,7 @@ for url in linesplit:
                 )
             ):
                 print(f"{url} - May Be Cached\n")
-                with open("cached.txt", "a") as cachedlist:
+                with open(filname, "a") as cachedlist:
                     cachedlist.write(f"{url}\n")
     except:
         print(f"{url} - Network Error\n")
