@@ -5,11 +5,12 @@ import sys
 
 
 subdomain_file = sys.stdin
+#TODO: make filename optional arg with argparse
 filename = sys.argv[1]
 
-linesplit = iter([i.rstrip("\n") for i in subdomain_file])
+domain_list = iter([i.rstrip("\n") for i in subdomain_file])
 
-for url in linesplit:
+for url in domain_list:
     try:
         with requests.get(url) as requesting:
             headers = requesting.headers
@@ -33,9 +34,9 @@ for url in linesplit:
                 )
             ):
                 print(f"{url} - May Be Cached\n")
-                with open(filname, "a") as cachedlist:
+                with open(filename, "a") as cachedlist:
                     cachedlist.write(f"{url}\n")
     except:
         print(f"{url} - Network Error\n")
-        next(linesplit)
+        next()
         continue
