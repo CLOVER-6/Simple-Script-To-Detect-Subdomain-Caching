@@ -15,7 +15,7 @@ for url in domain_list:
         with requests.get(url) as requesting:
             headers = requesting.headers
             if (
-                "HIT"
+                "HIT" in headers
                 or "MISS" in headers
                 and (
                     "X-Cache"
