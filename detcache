@@ -89,7 +89,7 @@ def detcache(domains):
             continue
 
         except requests.exceptions.SSLError:
-            print(f"{url} - SSL Error (disable with -n)")
+            print(f"{url} - SSL Error (not certificate-based)")
             continue
 
         except requests.exceptions.ConnectionError:
