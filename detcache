@@ -1,42 +1,108 @@
 #!/usr/bin/env python3
 
+
 import requests
 import sys
+import argparse
+from urllib3.exceptions import InsecureRequestWarning
+
+# adding and parsing of arguments
+parser = argparse.ArgumentParser(
+    description="A simple script to detect (sub)domain caching",
+    prog="detcache",
+)
+
+parser.add_argument(
+    "subdomain_file",
+    type=argparse.FileType("r"),
+    help="the file of http (sub)domains",
+)
+
+parser.add_argument(
+    "outfile",
+    nargs="?",
+    help="the file to store output to",
+)
+
+parser.add_argument(
+    "-n",
+    "--no-sslcheck",
+    default=False,
+    action="store_true",
+    help="ignore that a url does not have valid ssl",
+)
+
+parse_args = parser.parse_args()
 
 
-subdomain_file = sys.stdin
-#TODO: make filename optional arg with argparse
-filename = sys.argv[1]
+def detcache(domains):
+    # list of most common cache headers and statuses
+    # (via personal testing, will look for more concise one in future)
+    header_list = [
+        "X-Cache",
+        "Cf-Cache-Status",
+        "Age",
+        "X-Drupal-Cache",
+        "X-Cache-Hits",
+        "X-Drupal-Dynamic-Cache",
+        "Cf-Ray",
+        "Vary",
+        "Strict-Transport-Security: max-age",
+        "Varnish",
+        "varnish",
+        "Cloudflare",
+        "Fastly",
+    ]
+    statuses = ["HIT", "MISS", "STALE", "Hit", "Miss", "Stale"]
 
-domain_list = iter([i.rstrip("\n") for i in subdomain_file])
+    print("Starting....")
+    print("Finding cached domains....")
+    
+    for url in domains:
+        try:
+            # requesting each url to retrieve headers
+            # ignoring incorrect ssl cert depending on if arg is given
+            with requests.get(
+                url, verify=False if parse_args.no_sslcheck else True
+            ) as request:
+                headers = request.headers
 
-for url in domain_list:
-    try:
-        with requests.get(url) as requesting:
-            headers = requesting.headers
-            if (
-                "HIT" in headers
-                or "MISS" in headers
-                and (
-                    "X-Cache"
-                    or "Cf-Cache-Status"
-                    or "Age"
-                    or "X-Drupal-Cache"
-                    or "X-Cache-Hits"
-                    or "X-Drupal-Dynamic-Cache"
-                    or "Cf-Ray"
-                    or "Vary"
-                    or "Strict-Transport-Security: max-age"
-                    or "Varnish"
-                    or "varnish"
-                    or "CloudFlare"
-                    or "Fastly" in headers
-                )
-            ):
-                print(f"{url} - May Be Cached\n")
-                with open(filename, "a") as cachedlist:
-                    cachedlist.write(f"{url}\n")
-    except:
-        print(f"{url} - Network Error\n")
-        next()
-        continue
+                # checking for if request contains at least one header
+                # from header list, then checking for HIT/MISS
+                if bool(
+                    [headers for head in header_list if (head in headers)]
+                ) and bool(
+                    [headers for status in statuses if (status in str(headers))]
+                ):
+                    print(f"{url} - May Be Cached")
+                    
+                    # adding cached url to file if outfile is defined
+                    if parse_args.outfile:
+                        with open(
+                            parse_args.outfile, "a"
+                            ) as cachedlist:
+                            cachedlist.write(f"{url}\n")
+
+        # catching exceptions and printing corresponding errors
+        except requests.exceptions.HTTPError:
+            print(f"{url} - HTTP Error")
+            continue
+
+        except requests.exceptions.SSLError:
+            print(f"{url} - SSL Error (disable with -n)")
+            continue
+
+        except requests.exceptions.ConnectionError:
+            print(f"{url} - Connection Error")
+            continue
+
+
+# disabling insecure request warning if --no-sslcheck is used
+if parse_args.no_sslcheck:
+    requests.packages.urllib3.disable_warnings(category=InsecureRequestWarning)
+
+# pushing all domains within file into readable list
+domain_list = [i.rstrip("\n") for i in parse_args.subdomain_file]
+
+# running list through detcache
+detcache(domain_list)
