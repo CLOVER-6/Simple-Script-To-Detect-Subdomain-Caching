@@ -20,13 +20,13 @@ Both print the same results, but the second saves to a file named "cached-domain
 
 # Options
 
-positional arguments:
+### positional arguments:
 
   subdomain_file     the file of http (sub)domains
   
   outfile            the file to store output to
 
-optional arguments:
+### optional arguments:
   
   -h, --help         show help message and exit
   
