@@ -95,8 +95,11 @@ def detcache(domains):
         except requests.exceptions.ConnectionError:
             print(f"{url} - Connection Error")
             continue
+            
+        except:
+            print(f"{url} - Exception Occurred")
 
-
+            
 # disabling insecure request warning if --no-sslcheck is used
 if parse_args.no_sslcheck:
     requests.packages.urllib3.disable_warnings(category=InsecureRequestWarning)
