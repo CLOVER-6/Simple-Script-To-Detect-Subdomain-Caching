@@ -88,7 +88,11 @@ def detcache(domains):
             continue
 
         except requests.exceptions.SSLError:
-            print(f"{url} - SSL Error (not certificate-based)")
+            print(
+                f"{url} - SSL Error (not certificate based)"
+                if parse_args.no_sslcheck
+                else f"{url} - SSL Error"
+            )
             continue
 
         except requests.exceptions.ConnectionError:
