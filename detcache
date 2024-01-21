@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
-
 import requests
+import sys
 import argparse
 from urllib3.exceptions import InsecureRequestWarning
 
@@ -31,84 +31,110 @@ parser.add_argument(
     help="ignore that a url does not have valid ssl",
 )
 
-parse_args = parser.parse_args()
+parser.add_argument(
+    "-t",
+    "--timeout",
+    default=5,
+    action="store",
+    help="set a timeout for url connection",
+)
 
+parseArgs = parser.parse_args()
 
-def detcache(domains):
-    # list of most common cache headers and statuses
-    # (via personal testing, will look for more concise one in future)
-    header_list = [
-        "X-Cache",
-        "Cf-Cache-Status",
-        "Age",
-        "X-Drupal-Cache",
-        "X-Cache-Hits",
-        "X-Drupal-Dynamic-Cache",
-        "Cf-Ray",
-        "Vary",
-        "Strict-Transport-Security: max-age",
-        "Varnish",
-        "varnish",
-        "Cloudflare",
-        "Fastly",
-    ]
-    statuses = ["HIT", "MISS", "STALE", "Hit", "Miss", "Stale"]
+# list of most common cache headers and statuses
+# (via personal testing, will look for more concise one in future)
+cacheHeaderList = [
+    "X-Cache",
+    "Cf-Cache-Status",
+    "Age",
+    "X-Drupal-Cache",
+    "X-Cache-Hits",
+    "X-Drupal-Dynamic-Cache",
+    "Cf-Ray",
+    "Vary",
+    "Strict-Transport-Security: max-age",
+    "Varnish",
+    "varnish",
+    "Cloudflare",
+    "Fastly",
+]
 
-    print("Starting....")
-    print("Finding cached domains....")
-    
-    for url in domains:
-        try:
-            # requesting each url to retrieve headers
-            # ignoring incorrect ssl cert depending on if arg is given
-            with requests.get(
-                url, verify=False if parse_args.no_sslcheck else True
-            ) as request:
-                headers = request.headers
+# no way to do capital and lowercase, at least not without it being a pin in the ass
+# any respected caching tool only uses full capital and first letter capital
+cacheStatusList = ["HIT", "MISS", "STALE", "EXPIRED", "REVALIDATED", "UPDATING",
+                   "Hit", "Miss", "Stale", "Expired", "Revalidated", "Updating"]
 
-                # checking for if request contains at least one header
-                # from header list, then checking for HIT/MISS
-                if bool(
-                    [headers for head in header_list if (head in headers)]
-                ) and bool(
-                    [headers for status in statuses if (status in str(headers))]
-                ):
-                    print(f"{url} - May Be Cached")
-                    
-                    # adding cached url to file if outfile is defined
-                    if parse_args.outfile:
-                        with open(
-                            parse_args.outfile, "a"
-                            ) as cachedlist:
-                            cachedlist.write(f"{url}\n")
-
-        # catching exceptions and printing corresponding errors
-        except requests.exceptions.HTTPError:
-            print(f"{url} - HTTP Error")
-            continue
-
-        except requests.exceptions.SSLError:
-            print(
-                f"{url} - SSL Error (not certificate based)"
-                if parse_args.no_sslcheck
-                else f"{url} - SSL Error"
-            )
-            continue
-
-        except requests.exceptions.ConnectionError:
-            print(f"{url} - Connection Error")
-            continue
-            
-        except:
-            print(f"{url} - Exception Occurred")
-
-            
-# disabling insecure request warning if --no-sslcheck is used
-if parse_args.no_sslcheck:
-    requests.packages.urllib3.disable_warnings(category=InsecureRequestWarning)
+# only user agent at the moment but put in seperate variable in case we need more later
+requestAddedHeaders = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}
 
 # pushing all domains within file into readable list
-domain_list = [i.rstrip("\n") for i in parse_args.subdomain_file]
+userDomainList = [i.rstrip("\n") for i in parseArgs.subdomain_file]
 
-# running list through detcache
-detcache(domain_list)
+# disabling insecure request warning if --no-sslcheck is used
+if parseArgs.no_sslcheck:
+    requests.packages.urllib3.disable_warnings(category=InsecureRequestWarning)
+
+
+print("Starting....")
+print("Finding cached domains....\n")
+
+for url in userDomainList:
+    try:
+        # fixing the "did you mean: https://" thing
+        if not url.startswith("http"):
+            try:
+                # requesting each url to retrieve headers
+                # ignoring incorrect ssl cert depending on if arg is given
+                with requests.get(
+                    "https://" + url, verify=not parseArgs.no_sslcheck, timeout=int(parseArgs.timeout), headers=requestAddedHeaders
+                ) as request:
+                    responseHeaders = request.headers
+            except:
+                # same thing but in case of it not being ssl
+                with requests.get(
+                    "http://" + url, verify=not parseArgs.no_sslcheck, timeout=int(parseArgs.timeout), headers=requestAddedHeaders
+                ) as request:
+                    responseHeaders = request.headers
+        else:
+            # in case it already has http
+            with requests.get(
+                    url, verify=not parseArgs.no_sslcheck, timeout=int(parseArgs.timeout), headers=requestAddedHeaders
+                ) as request:
+                    responseHeaders = request.headers
+
+        # much better readability than previous version
+        # checks if any of the cache headers/statuses are in the response headers/values
+        ifHeadersPresent = any(head in responseHeaders.keys() for head in cacheHeaderList)
+        ifStatusPresent = any(head in responseHeaders.values() for head in cacheStatusList)
+
+        # cant do cache attacks without a status, so check for both
+        if ifHeadersPresent and ifStatusPresent:
+            print(f"{url} - May Be Cached")
+
+            # adding cached url to file if outfile is defined
+            if parseArgs.outfile:
+                with open(
+                    parseArgs.outfile, "a"
+                ) as cachedlist:
+                    cachedlist.write(f"{url}\n")
+
+        # catching exceptions and printing corresponding errors
+    except requests.exceptions.HTTPError:
+        print(f"{url} - HTTP Error")
+        continue
+
+    except requests.exceptions.SSLError:
+        print(f"{url} - SSL Error (disable with -n)")
+        continue
+
+    except requests.exceptions.ConnectionError:
+        print(f"{url} - Connection Error" )
+        continue
+
+    except requests.exceptions.Timeout:
+        print(f"{url} - Timeout")
+        continue
+
+    except requests.exceptions.RequestException as e:
+        print(e)
+        continue
